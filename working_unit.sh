@@ -26,9 +26,9 @@ function show_help(){
     echo " Usage: "
     echo " -f : path to a file containing all the hosts destination. Either 'username@host' or 'host' format per line."
     echo " -u : default username for a host that is not in a format 'username@host' in the provided file path."
-    echo " -i : ssh/id_rsa.pub file to be used for ssh-copy-id.
-    echo " -S : Skip ssh-copy-id stage.
-    echo " -D : Dry run. No actual action done."
+    echo " -i : ssh/id_rsa.pub file to be used for ssh-copy-id."
+    echo " -S : Skip ssh-copy-id stage."
+    echo " -D : Dry run. No actual action will be done."
 }
 
 
