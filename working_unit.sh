@@ -20,19 +20,21 @@ SSH_PASSWD=
 
 SKIP_COPY_ID=false
 DRY_RUN=false
+SCRIPT_TO_EXECUTE=
 
 
 function show_help(){
     echo " Usage: "
-    echo " -f : path to a file containing all the hosts destination. Either 'username@host' or 'host' format per line."
+    echo " -f : [required] path to a file containing all the hosts destination. Either 'username@host' or 'host' format per line."
+    echo " -e : (optional) Script to execute on the remote host."
     echo " -u : default username for a host that is not in a format 'username@host' in the provided file path."
-    echo " -i : ssh/id_rsa.pub file to be used for ssh-copy-id."
-    echo " -S : Skip ssh-copy-id stage."
-    echo " -D : Dry run. No actual action will be done."
+    echo " -i : (optional) ssh/id_rsa.pub file to be used for ssh-copy-id."
+    echo " -S : (flag) Skip ssh-copy-id stage."
+    echo " -D : (flag) Dry run. No actual action will be done."
 }
 
 
-while getopts "h?f:u:i:SD" opt; do
+while getopts "h?f:u:i:e:SD" opt; do
     case "$opt" in
     h|\?)
         show_help
@@ -47,6 +49,9 @@ while getopts "h?f:u:i:SD" opt; do
     i) # path to .ssh/id_rsa.pub
         SSH_ID=$OPTARG
         ;;
+    e)
+        SCRIPT_TO_EXECUTE=$OPTARG
+        ;;
     D) #dry run
         DRY_RUN=true
         ;;
@@ -55,7 +60,6 @@ while getopts "h?f:u:i:SD" opt; do
         ;;
     esac
 done
-
 
 if [ -z "$HOSTS_FILE" ]; then
     echo "Missing positional argument #1: path to a file with all the host names"
@@ -77,6 +81,10 @@ if [ $SKIP_COPY_ID = false ]; then
     read -s SSH_PASSWD #Not sure if it is a good idea to store pasword in the global variable...
 fi #skip ssh-copy-id
 
+if [ -z "$SSH_PASSWD" ]; then
+    echo "Password for remote user:"
+    read -s SSH_PASSWD #Not sure if it is a good idea to store pasword in the global variable...
+fi
 
 while IFS='' read -r line || [[ -n "$line" ]]; do
     if [[ ${line:0:1} = '#' || ${line:0:1} = '/' ]]; then
@@ -114,4 +122,18 @@ while IFS='' read -r line || [[ -n "$line" ]]; do
     if [ $SKIP_COPY_ID = false ]; then
         sshpass -p $SSH_PASSWD ssh-copy-id -i $SSH_ID $destination
     fi
+
+    if [ -z "$SCRIPT_TO_EXECUTE" ]; then
+        continue
+    fi
+
+
+    script_name=$(basename $SCRIPT_TO_EXECUTE)
+    remote_script=/tmp/$script_name
+    # Copy script to the remote destination
+    sshpass -p $SSH_PASSWD scp $SCRIPT_TO_EXECUTE $user@$host:$remote_script
+    # Run copied script on host
+    sshpass -p $SSH_PASSWD ssh -t $user@$host $remote_script
+    # Cleanup the script
+    sshpass -p $SSH_PASSWD ssh -t $user@$host "rm $remote_script"
 done < "$HOSTS_FILE"
